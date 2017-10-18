@@ -36,21 +36,27 @@ Agent::~Agent() {
 //3 > left
 //0 if a wall is there, -1 if we die, 1 if we move uneventfully
 int Agent::move(int dir) {
+    if (dir < 0)
+        return 1;
     points -= 1;
     int x_offset = 0;
     int y_offset = 0;
     switch (dir) {
         case 0:
             y_offset = -1;
+            printf("moving up\n");
             break;
         case 1:
             x_offset = 1;
+            printf("moving right\n");
             break;
         case 2:
             y_offset = 1;
+            printf("moving down\n");
             break;
         case 3:
             x_offset = -1;
+            printf("moving left\n");
             break;
         default:
             break;
@@ -58,6 +64,7 @@ int Agent::move(int dir) {
     uint8_t target = board[curr_y + y_offset][curr_x + x_offset];
     if (target & 0x10) {
         //we hit a wall
+        knowledge[curr_y + y_offset][curr_x + x_offset] = 0x90;
         return 0;
     }
     else { 
@@ -355,4 +362,153 @@ void Agent::print_knowledge() {
         printf("|\n");
     }
 
+}
+
+int Agent::path_to(int x, int y) {
+    if (curr_x == x && curr_y == y) {
+        return -1;
+    }
+    //i guess we'll use a*
+    //each grid square has and x, y, parent (x, y), and G cost
+    std::vector<std::tuple<int, int, int, int, int> > open;
+    std::vector<std::tuple<int, int, int, int, int> > closed;
+    closed.push_back(std::make_tuple(curr_x, curr_y, curr_x, curr_y, 0));
+    //add all neighbors of the starting point to the open list
+    int x_offset = 0;
+    int y_offset = 0;
+    int current_x = curr_x;
+    int current_y = curr_y;
+    int current_g = 0;
+    int open_ind;
+    while (true) {
+        //don't go there if there might be a pit, wumpus, supmuw (dead ones are fine though)
+        //also don't go there if there is a wall
+        //dont add to the open list if it is already in the open or closed list
+        //if it is already in the list, then update the G if necessary
+        if (!(knowledge[current_x + 1][current_y] & 0x1B)) {
+            if (space_in(current_x + 1, current_y, open) < 0 && space_in(current_x + 1, current_y, closed) < 0) {
+                printf("Adding right %d, %d\n", current_x + 1, current_y);
+                open.push_back(std::make_tuple(current_x + 1, current_y, current_x, current_y, current_g + 1));
+            }
+            else {
+                open_ind = space_in(current_x + 1, current_y, open);
+                if (open_ind >= 0) {
+                    if (std::get<4>(open[open_ind]) > current_g + 1) {
+                        open[open_ind] = std::make_tuple(current_x + 1, current_y, current_x, current_y, current_g + 1);
+                    }
+                }
+            }
+        }
+        if (!(knowledge[current_x - 1][current_y] & 0x1B)) {
+            if (space_in(current_x - 1, current_y, open) < 0 && space_in(current_x - 1, current_y, closed) < 0) {
+                printf("Adding left %d, %d\n", current_x - 1, current_y);
+                open.push_back(std::make_tuple(current_x - 1, current_y, current_x, current_y, current_g + 1));
+            }
+            else {
+                open_ind = space_in(current_x - 1, current_y, open);
+                if (open_ind >= 0) {
+                    if (std::get<4>(open[open_ind]) > current_g + 1) {
+                        open[open_ind] = std::make_tuple(current_x - 1, current_y, current_x, current_y, current_g + 1);
+                    }
+                }
+            }
+        }
+        if (!(knowledge[current_x][current_y + 1] & 0x1B)) {
+            if (space_in(current_x, current_y + 1, open) < 0 && space_in(current_x, current_y + 1, closed) < 0) {
+                printf("Adding down %d, %d\n", current_x, current_y + 1);
+                open.push_back(std::make_tuple(current_x, current_y + 1, current_x, current_y, current_g + 1));
+            }
+            else {
+                open_ind = space_in(current_x, current_y + 1, open);
+                if (open_ind >= 0) {
+                    if (std::get<4>(open[open_ind]) > current_g + 1) {
+                        open[open_ind] = std::make_tuple(current_x + 1, current_y, current_x, current_y, current_g + 1);
+                    }
+                }
+            }
+        }
+        if (!(knowledge[current_x][current_y - 1] & 0x1B)) {
+            if (space_in(current_x, current_y - 1, open) < 0 && space_in(current_x, current_y - 1, closed) < 0) {
+                printf("Adding up %d, %d\n", current_x, current_y - 1);
+                open.push_back(std::make_tuple(current_x, current_y - 1, current_x, current_y, current_g + 1));
+            }
+            else {
+                open_ind = space_in(current_x, current_y - 1, open);
+                if (open_ind >= 0) {
+                    if (std::get<4>(open[open_ind]) > current_g + 1) {
+                        open[open_ind] = std::make_tuple(current_x + 1, current_y, current_x, current_y, current_g + 1);
+                    }
+                }
+            }
+        }
+        int smallest_F = -1;
+        int smallest_ind = 0;
+        //now go through the open list and find the smallest F
+        for (int i = 0; i < open.size(); i++) {
+            int f_score = manhattan(std::get<0>(open[i]), std::get<1>(open[i]), x, y) + std::get<4>(open[i]);
+            if (smallest_F < 0) {
+                smallest_F = f_score;
+                smallest_ind = i;
+            }
+            else if (f_score < smallest_F) {
+                smallest_F = f_score;
+                smallest_ind = i;
+            }
+        }
+        //open list is empty, no path to target
+        if (smallest_F == -1) {
+            printf("no move!\n");
+            return -1;
+        }
+        //move smallest to closed list
+        std::tuple<int, int, int, int, int> smallest = open[smallest_ind];
+        closed.push_back(smallest);
+        open.erase(open.begin() + smallest_ind);
+        //update current values
+        current_x = std::get<0>(smallest);
+        current_y = std::get<1>(smallest);
+        current_g++;
+        if (current_x == x && current_y == y) {
+            //oh hey we're at the goal
+            //find the direction of the first move
+            int first_x = std::get<0>(closed[1]);
+            int first_y = std::get<1>(closed[1]);
+            //left
+            if (first_x < curr_x)
+                return 3;
+            //right
+            if (first_x > curr_x)
+                return 1;
+            //up
+            if (first_y < curr_y)
+                return 0;
+            //down
+            if (first_y > curr_y)
+                return 2;
+            else
+                return -1;
+        }
+    }
+}
+
+//checks if a space is in a vector
+int Agent::space_in(int x, int y, std::vector<std::tuple<int, int, int, int, int> > list) {
+    for (int i = 0; i < list.size(); i++) {
+        if (std::get<0>(list[i]) == x && std::get<1>(list[i]) == y) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int Agent::manhattan(int x1, int y1, int x2, int y2) {
+    int dist_x = x2 - x1;
+    int dist_y = y2 - y1;
+    if (dist_y < 0) {
+        dist_y *= -1;
+    }
+    if (dist_x < 0) {
+        dist_x *= -1;
+    }
+    return dist_x+dist_y;
 }

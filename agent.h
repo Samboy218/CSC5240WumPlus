@@ -1,4 +1,6 @@
 #include <cstdint>
+#include <tuple>
+#include <vector>
 
 class Agent {
     public:
@@ -24,8 +26,12 @@ class Agent {
         void sense_surroundings();
         void print_cave();
         void print_knowledge();
+        int path_to(int x, int y);
 
     private:
+        //finds path to a tile; gives next move
+        int manhattan(int x1, int y1, int x2, int y2);
+        int space_in(int x, int y, std::vector<std::tuple< int, int, int, int, int> >);
         int points;
         int curr_x;
         int curr_y;
