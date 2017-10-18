@@ -21,11 +21,18 @@ int main(int argc, char** argv) {
         file.getline(row, w+1);
         cave[i] = row;
     }
+    int sup_x;
+    int sup_y;
+    file >> sup_x;
+    file >> sup_y;
+    int agent_x;
+    int agent_y;
+    file >> agent_x;
+    file >> agent_y;
 
-    for (int i = 0; i < h; i++) {
-        printf("%s\n", cave[i]);
-    }
     printf("w: %d, h: %d\n", w, h);
+    printf("sup x: %d, sup y: %d\n", sup_x, sup_y);
+    printf("agent x: %d, agent y: %d\n", agent_x, agent_y);
 
     uint8_t** cave_vals = new uint8_t*[h];
     for (int i = 0; i < h; i++) {
@@ -34,13 +41,17 @@ int main(int argc, char** argv) {
             cave_vals[i][j] = get_tile_val(cave[i][j]);
         }
     }
+    cave_vals[sup_y][sup_x] |= 0x01;
     
-    for (int i = 0; i < h; i++) {
-        for (int j = 0; j < w; j++) {
-            printf("%2x", cave_vals[i][j]);
-        }
-        printf("\n");
-    }
+    Agent* agent = new Agent(cave_vals, w, h, agent_x, agent_y);
+    agent->print_cave();
+    agent->print_knowledge();
+    printf("\n");
+    agent->sense_surroundings();
+    agent->print_knowledge();
+    agent->move(2);
+    agent->sense_surroundings();
+    agent->print_knowledge();
 
 
     for (int i = 0; i < h; i++) {
@@ -72,9 +83,9 @@ uint8_t get_tile_val(char tile) {
             return 0x04;
 
         //supmuw
-        case 'S':
-        case 's':
-            return 0x01;
+        //case 'S':
+        //case 's':
+            //return 0x01;
 
         default:
             return 0x00;

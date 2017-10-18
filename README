@@ -1,0 +1,35 @@
+repo for programming assignment
+
+input files must include the outer wall, and the outer wall must be solid
+
+Input File Definition:
+The first line is the total size of the cave in (w h), this size includes the 
+outer wall. the next lines define the cave itself. These lines should match the
+dimensions defined in line 1 (i.e. if the first line is '4 3', then the next 3
+lines should each have 4 characters.
+character definitions:
+# - Wall
+W - Wumpus
+P - Pit
+G - Gold
+any other character will result in an empty space
+
+the line directly after the cave definition contains the coordinates of the 
+supmuw (x y), and the line directly after that defines the starting point of 
+the agent. 
+Remember when placing these that there is the outer wall to 
+account for (if either x or y are 0, then you're probably wrong)
+******
+coordinates start at the top left (like graphics coordinates)
+******
+
+ASSUMPTIONS:
+arrows will travel until they hit something (wall, wumpus, supmuw)
+the supmuw can only be heard in adjacent squares (orthogonally)
+if the supmuw dies, it stops mooing
+if the wumpus dies, it will still be smelled
+the death scream of the wumpus and supmuw are different
+a dead creature can only be seen if you are in its square
+
+
+1, 1 is actually the top left of the board

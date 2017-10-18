@@ -1,9 +1,33 @@
+#include <iostream>
 #include "agent.h"
 
-Agent::Agent(uint8_t** cave, int w, int h) {
+Agent::Agent(uint8_t** cave, int w, int h, int x, int y) {
+    points = 0;
+    curr_x = x;
+    curr_y = y;
+    facing = 0;
+    arrow = true;
+    cave_w = w;
+    cave_h = h;
+    board = cave;
+    knowledge = new uint8_t*[cave_h];
+    for (int i = 0; i < h; i++) {
+        knowledge[i] = new uint8_t[cave_w];
+        for ( int j = 0; j < w; j++) {
+            if (j == 0 || i == 0 || j == w-1 || i == h-1) {
+                knowledge[i][j] = 0x90;
+            }
+            else
+                knowledge[i][j] = 0x00;
+        }
+    }
 }
 
 Agent::~Agent() {
+    for (int i = 0; i < cave_h; i++) {
+        delete[] knowledge[i];
+    }
+    delete[] knowledge;
 }
 
 //0 > up
@@ -13,17 +37,17 @@ Agent::~Agent() {
 //0 if a wall is there, -1 if we die, 1 if we move uneventfully
 int Agent::move(int dir) {
     points -= 1;
-    uint8_t x_offset = 0;
-    uint8_t y_offset = 0;
+    int x_offset = 0;
+    int y_offset = 0;
     switch (dir) {
         case 0:
-            y_offset = 1;
+            y_offset = -1;
             break;
         case 1:
             x_offset = 1;
             break;
         case 2:
-            y_offset = -1;
+            y_offset = 1;
             break;
         case 3:
             x_offset = -1;
@@ -152,10 +176,183 @@ uint8_t Agent::detect() {
     sense |= board[curr_y][curr_x-1];
     sense |= board[curr_y][curr_x+1];
     //we can only see gold or dead if we are in its square, so mask those out
-    sense &= 0x1B;
+    sense &= 0x0B;
     sense |= board[curr_y][curr_x];
     //remove unused bits from being set
     sense &= 0x7F;
     return sense;
 }
 
+void Agent::sense_surroundings() {
+    uint8_t sense = detect();
+    //if we see gold or a dead thing, then we know what is in our square
+    //don't modify a square with the knowledge bit set
+
+    //if we see gold
+    if (sense & 0x04) {
+        knowledge[curr_y][curr_x] = 0x84;
+        //there may also be a dead supmuw here, so check that
+        knowledge[curr_y][curr_x] |= (sense & 0x20);
+    }
+    //dead wumpus
+    else if (sense & 0x40) {
+        //if we see dead wumpus, then nothing else is in this square
+        knowledge[curr_y][curr_x] = 0xC0;
+    }
+    //dead supmuw, but no gold here
+    else if (sense & 0x20) {
+        knowledge[curr_y][curr_x] = 0xA0;
+    }
+    //other cases of our current space
+    else {
+        if (sense == 0) {
+            knowledge[curr_y][curr_x] = 0x80;
+        }
+        //mask out wumpus and pit, if we don't die they aren't here
+        knowledge[curr_y][curr_x] |= sense & 0x01;
+    }
+    //remove those already covered cases from the sense
+    sense &= 0x0B;
+    //left square
+    //right squre
+    //up square
+    //down square
+    if (!(knowledge[curr_y+1][curr_x] & 0x80)) {
+        if (sense == 0) {
+            knowledge[curr_y+1][curr_x] = 0x80;
+        }
+        knowledge[curr_y+1][curr_x] |= sense;
+    }
+    if (!(knowledge[curr_y-1][curr_x] & 0x80)) {
+        if (sense == 0) {
+            knowledge[curr_y-1][curr_x] = 0x80;
+        }
+        knowledge[curr_y-1][curr_x] |= sense;
+    }
+    if (!(knowledge[curr_y][curr_x+1] & 0x80)) {
+        if (sense == 0) {
+            knowledge[curr_y][curr_x+1] = 0x80;
+        }
+        knowledge[curr_y][curr_x+1] |= sense;
+    }
+    if (!(knowledge[curr_y][curr_x-1] & 0x80)) {
+        if (sense == 0) {
+            knowledge[curr_y][curr_x-1] = 0x80;
+        }
+        knowledge[curr_y][curr_x-1] |= sense;
+    }
+
+}
+
+void Agent::print_cave() {
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+            if (j == curr_x && i == curr_y) {
+                printf("A");
+            }
+            else {
+                switch(board[i][j]) {
+                    //pit
+                    case 0x02:
+                        //printf("O");
+                        printf("\x1b[44;30mO\x1b[0m");
+                        break;
+                    //gold
+                    case 0x04:
+                        //printf("*");
+                        printf("\x1b[33m*\x1b[0m");
+                        break;
+                    //wumpus
+                    case 0x08:
+                        //printf("W");
+                        printf("\x1b[31mW\x1b[0m");
+                        break;
+                    //supmuw
+                    case 0x01:
+                        //printf("S");
+                        printf("\x1b[32mS\x1b[0m");
+                        break;
+                    //wall
+                    case 0x10:
+                        //printf("#");
+                        printf("\x1b[40m#\x1b[0m");
+                        break;
+                    //dead supmuw
+                    case 0x21:
+                        //printf("$");
+                        printf("\x1b[32m$\x1b[0m");
+                        break;
+                    //dead wumpus
+                    case 0x48:
+                        //printf("X");
+                        printf("\x1b[31mX\x1b[0m");
+                        break;
+                    //pit & supmuw
+                    case 0x03:
+                        //printf("@");
+                        printf("\x1b[44;32m@\x1b[0m");
+                        break;
+                    //gold & supmuw
+                    case 0x05:
+                        //printf("&");
+                        printf("\x1b[43;32m&\x1b[0m");
+                        break;
+                    //wumpus & supmuw
+                    case 0x09:
+                        //printf("%");
+                        printf("\x1b[31m%\x1b[0m");
+                        break;
+                    default:
+                        printf(" ");
+                }
+            }
+        }
+        printf("\n");
+    }
+}
+
+void Agent::print_knowledge() {
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+            char space[10] = "         ";
+            if (j == curr_x && i == curr_y) {
+                space[0] = 'A';
+            }
+            //we don't know what is in the space
+            if (!(knowledge[i][j] & 0x80)) {
+                space[1] = '?';
+            }
+            //moo
+            if (knowledge[i][j] & 0x01) {
+                space[2] = 'S';
+            }
+            //pit (breeze)
+            if (knowledge[i][j] & 0x02) {
+                space[3] = '~';
+            }
+            //gold (glitter)
+            if (knowledge[i][j] & 0x04) {
+                space[4] = '*';
+            }
+            //Wumpus (smell)
+            if (knowledge[i][j] & 0x08) {
+                space[5] = 'W';
+            }
+            //wall
+            if (knowledge[i][j] & 0x10) {
+                space[6] = '#';
+            }
+            //dead supmuw
+            if (knowledge[i][j] & 0x20) {
+                space[7] = '$';
+            }
+            //dead wumpus
+            if (knowledge[i][j] & 0x40) {
+                space[8] = 'X';
+            }
+            printf("| %s ", space);
+        }
+        printf("|\n");
+    }
+
+}
