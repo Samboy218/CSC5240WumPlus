@@ -13,4 +13,4 @@ clean:
 
 .PHONY: debug
 debug: $(sourceName) $(extras)
-	 g++ -o $(modName) $(sourceName) $(extras) -std=gnu++11
+	 g++ -o $(modName) $(sourceName) $(extras) -std=gnu++11 -g
