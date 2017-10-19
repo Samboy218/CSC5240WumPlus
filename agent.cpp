@@ -364,9 +364,11 @@ void Agent::print_knowledge() {
 
 }
 
-int Agent::path_to(int x, int y) {
+std::vector<int> Agent::path_to(int x, int y) {
     if (curr_x == x && curr_y == y) {
-        return -1;
+        std::vector<int> moves;
+        moves.push_back(-1);
+        return moves;
     }
     //i guess we'll use a*
     //each grid square has and x, y, parent (x, y), and G cost
@@ -385,9 +387,9 @@ int Agent::path_to(int x, int y) {
         //also don't go there if there is a wall
         //dont add to the open list if it is already in the open or closed list
         //if it is already in the list, then update the G if necessary
-        if (!(knowledge[current_x + 1][current_y] & 0x1B)) {
+        //if (!(knowledge[current_x + 1][current_y] & 0x1B)) {
+        if (is_safe(current_x + 1, current_y)) {
             if (space_in(current_x + 1, current_y, open) < 0 && space_in(current_x + 1, current_y, closed) < 0) {
-                printf("Adding right %d, %d\n", current_x + 1, current_y);
                 open.push_back(std::make_tuple(current_x + 1, current_y, current_x, current_y, current_g + 1));
             }
             else {
@@ -399,9 +401,9 @@ int Agent::path_to(int x, int y) {
                 }
             }
         }
-        if (!(knowledge[current_x - 1][current_y] & 0x1B)) {
+        //if (!(knowledge[current_x - 1][current_y] & 0x1B)) {
+        if (is_safe(current_x - 1, current_y)) {
             if (space_in(current_x - 1, current_y, open) < 0 && space_in(current_x - 1, current_y, closed) < 0) {
-                printf("Adding left %d, %d\n", current_x - 1, current_y);
                 open.push_back(std::make_tuple(current_x - 1, current_y, current_x, current_y, current_g + 1));
             }
             else {
@@ -413,9 +415,9 @@ int Agent::path_to(int x, int y) {
                 }
             }
         }
-        if (!(knowledge[current_x][current_y + 1] & 0x1B)) {
+        //if (!(knowledge[current_x][current_y + 1] & 0x1B)) {
+        if (is_safe(current_x, current_y + 1)) {
             if (space_in(current_x, current_y + 1, open) < 0 && space_in(current_x, current_y + 1, closed) < 0) {
-                printf("Adding down %d, %d\n", current_x, current_y + 1);
                 open.push_back(std::make_tuple(current_x, current_y + 1, current_x, current_y, current_g + 1));
             }
             else {
@@ -427,9 +429,9 @@ int Agent::path_to(int x, int y) {
                 }
             }
         }
-        if (!(knowledge[current_x][current_y - 1] & 0x1B)) {
+        //if (!(knowledge[current_x][current_y - 1] & 0x1B)) {
+        if (is_safe(current_x, current_y - 1)) {
             if (space_in(current_x, current_y - 1, open) < 0 && space_in(current_x, current_y - 1, closed) < 0) {
-                printf("Adding up %d, %d\n", current_x, current_y - 1);
                 open.push_back(std::make_tuple(current_x, current_y - 1, current_x, current_y, current_g + 1));
             }
             else {
@@ -457,8 +459,9 @@ int Agent::path_to(int x, int y) {
         }
         //open list is empty, no path to target
         if (smallest_F == -1) {
-            printf("no move!\n");
-            return -1;
+            std::vector<int> moves;
+            moves.push_back(-1);
+            return moves;
         }
         //move smallest to closed list
         std::tuple<int, int, int, int, int> smallest = open[smallest_ind];
@@ -470,23 +473,41 @@ int Agent::path_to(int x, int y) {
         current_g++;
         if (current_x == x && current_y == y) {
             //oh hey we're at the goal
-            //find the direction of the first move
-            int first_x = std::get<0>(closed[1]);
-            int first_y = std::get<1>(closed[1]);
-            //left
-            if (first_x < curr_x)
-                return 3;
-            //right
-            if (first_x > curr_x)
-                return 1;
-            //up
-            if (first_y < curr_y)
-                return 0;
-            //down
-            if (first_y > curr_y)
-                return 2;
-            else
-                return -1;
+            //find the direction of each move and get those in a vector of moves
+            int move_x;
+            int move_y;
+            int prev_x;
+            int prev_y;
+            std::vector<int> moves;
+            prev_x = x;
+            prev_y = y;
+
+            while (prev_x != curr_x || prev_y != curr_y) {
+                //find where we came from to get here
+                int move_ind = space_in(prev_x, prev_y, closed);
+                move_x = std::get<2>(closed[move_ind]);
+                move_y = std::get<3>(closed[move_ind]);
+                //now get the move that got us there
+                //left
+                if (move_x > prev_x)
+                    moves.insert(moves.begin(), 3);
+                //right
+                else if (move_x < prev_x)
+                    moves.insert(moves.begin(), 1);
+                //up
+                else if (move_y > prev_y)
+                    moves.insert(moves.begin(), 0);
+                //down
+                else if (move_y < prev_y)
+                    moves.insert(moves.begin(), 2);
+                else
+                    moves.insert(moves.begin(), -1);
+
+                //move is now prev
+                prev_x = move_x;
+                prev_y = move_y;
+            }
+            return moves;
         }
     }
 }
@@ -499,6 +520,43 @@ int Agent::space_in(int x, int y, std::vector<std::tuple<int, int, int, int, int
         }
     }
     return -1;
+}
+
+// known | dead wumpus | dead supmuw | wall | wumpus | gold | pit | supmuw
+bool Agent::is_safe(int x, int y) {
+    if (x < 0 || y < 0 || x > cave_w-1 || y > cave_h-1)
+        return false;
+    uint8_t sense = knowledge[y][x];
+    //dangerous: wumpus, pit, wall
+    //wall is bad
+    if ((sense & 0x10) == 0x10) {
+        return false;
+    }
+    //a living wumpus is bad
+    if ((sense & 0x48) == 0x08) {
+        return false;
+    }
+    //supmuw and pit
+    if ((sense & 0x83) == 0x83)
+       return true; 
+    //living supmuw is bad (unless there is a pit)
+    if ((sense & 0x21) == 0x01) {
+        return false;
+    }
+    //a pit is bad
+    if ((sense & 0x02) == 0x02) {
+        return false;
+    }
+    return true;
+}
+
+void Agent::check_knowledge() {   
+    //go through each square, if there is a sense in it and 3 adjacent squares are known, then that square is known
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+
+        }
+    }
 }
 
 int Agent::manhattan(int x1, int y1, int x2, int y2) {
