@@ -24,6 +24,8 @@ coordinates start at the top left (like graphics coordinates)
 ******
 
 ASSUMPTIONS:
+this is a cautious agent. he has a family to feed, and he won't take crazy
+    risks to get the gold. if he isn't certain he'll live he will give up
 arrows will travel until they hit something (wall, wumpus, supmuw)
 the supmuw can only be heard in adjacent squares (orthogonally)
 if the supmuw dies, it stops mooing
