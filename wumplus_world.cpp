@@ -58,6 +58,12 @@ int main(int argc, char** argv) {
         to_move_y = std::get<1>(agent->seen[0]);
         agent->seen.erase(agent->seen.begin());
         agent->move_to(to_move_x, to_move_y);
+        if (agent->seen.size() == 0) {
+            //agent has explored everything, now go hunt the wumpus
+            int hunt_success = agent->hunt();
+            //if we kill the wumpus, then another space should be added to seen
+            //otherwise oh well
+        }
     }
     agent->move_to(agent_x, agent_y);
 
@@ -73,7 +79,7 @@ int main(int argc, char** argv) {
     if (agent->is_dead()) {
         printf("Oh no! you died!\n");
     }
-    //agent->print_knowledge();
+    agent->print_knowledge();
 
     for (int i = 0; i < h; i++) {
         delete[] cave[i];

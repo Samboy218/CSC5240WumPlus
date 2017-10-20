@@ -30,6 +30,7 @@ class Agent {
         void print_knowledge();
         std::vector<int> path_to(int x, int y);
         bool move_to(int x, int y);
+        int hunt();
         int get_x();
         int get_y();
 
@@ -47,6 +48,8 @@ class Agent {
         int space_in(int x, int y, std::vector<std::tuple< int, int, int, int, int> >);
         int space_in(int x, int y, std::vector<std::tuple< int, int> >);
         bool is_safe(int x, int y);
+        //do this when we kill a thing. wumpus is 0x08, supmuw is 0x01
+        void kill_monster(uint8_t type);
         bool grab();
         int points;
         int curr_x;

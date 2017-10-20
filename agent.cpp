@@ -58,15 +58,19 @@ int Agent::move(int dir) {
     int y_offset = 0;
     switch (dir) {
         case 0:
+            printf("moving up\n");
             y_offset = -1;
             break;
         case 1:
+            printf("moving right\n");
             x_offset = 1;
             break;
         case 2:
+            printf("moving down\n");
             y_offset = 1;
             break;
         case 3:
+            printf("moving left\n");
             x_offset = -1;
             break;
         default:
@@ -165,13 +169,13 @@ int Agent::shoot() {
     int y_offset = 0;
     switch (facing) {
         case 0:
-            y_offset = 1;
+            y_offset = -1;
             break;
         case 1:
             x_offset = 1;
             break;
         case 2:
-            y_offset = -1;
+            y_offset = 1;
             break;
         case 3:
             x_offset = -1;
@@ -185,22 +189,24 @@ int Agent::shoot() {
     //yes this infinite while loop is on purpose
     while (true) {
         target = board[curr_y + curr_y_offset][curr_x + curr_x_offset];
-        //mask out gold
+        //mask out things that don't matter
         switch (target & 0x7B)  {
             //living wumpus hit
             case 0x08:
                 board[curr_y + curr_y_offset][curr_x + curr_x_offset] |= 0x40;
+                kill_monster(0x08);
                 return 1;
             //living supmuw hit
             case 0x01:
                 board[curr_y + curr_y_offset][curr_x + curr_x_offset] |= 0x20;
+                kill_monster(0x01);
                 return 2;
             //both living hit (kill wumpus)
             case 0x09:
                 board[curr_y + curr_y_offset][curr_x + curr_x_offset] |= 0x40;
                 return 1;
             //wall hit
-            case 0x02:
+            case 0x10:
                 return 0;
 
             //a pit will always go here, meaning the supmuw is saved by a pit
@@ -299,7 +305,7 @@ bool Agent::sense_surroundings() {
         knowledge[curr_y][curr_x-1] |= sense;
         not_knowledge[curr_y][curr_x-1] &= sense;
     }
-
+    return sensed_danger;
 }
 
 void Agent::print_cave() {
@@ -359,6 +365,10 @@ void Agent::print_cave() {
                     case 0x09:
                         //printf("%");
                         printf("\x1b[31m%\x1b[0m");
+                        break;
+                    //dead wumpus and living supmuw
+                    case 0x49:
+                        printf("\x1b[32m%\x1b[0m");
                         break;
                     default:
                         if (space_in(j, i, visited) >= 0)
@@ -616,6 +626,16 @@ bool Agent::is_safe(int x, int y) {
     return true;
 }
 
+//since the thing is dead, we can go through and mark every space as not having that thing
+void Agent::kill_monster(uint8_t type) {
+    type = ~type;
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+            not_knowledge[i][j] &= type;
+        }
+    }
+}
+
 void Agent::check_knowledge() {   
     //go through each square, if there is a sense in it and all adjacent squares have a different sense
     uint8_t new_knowledge;
@@ -624,7 +644,9 @@ void Agent::check_knowledge() {
             knowledge[i][j] &= (not_knowledge[i][j] | 0xF4);
             //if not_knowledge is 0, then we know nothing is there
             if (not_knowledge[i][j] == 0) {
-                knowledge[i][j] = 0x80; 
+                //we do it like this so we dont clear out the presence of a wall or gold
+                knowledge[i][j] &= 0xF4;
+                knowledge[i][j] |= 0x80;
             }
 
         }
@@ -650,6 +672,7 @@ bool Agent::move_to(int x, int y) {
     while (curr_x != x || curr_y != y) {
         move(moves[0]);
         sense_surroundings();
+        check_knowledge();
         //check if we found the gold
         if (knowledge[curr_y][curr_x] & 0x04) {
             //OMG GOLD
@@ -670,6 +693,66 @@ bool Agent::move_to(int x, int y) {
         //print_knowledge();
     }
     return true;
+}
+
+//find the wumpus, 
+//find an adjacent square we have already visited
+//turn towards wumpus
+//shoot
+//then add that square to seen (unless there is a supmuw there)
+int Agent::hunt() {
+    std::vector<std::tuple<int, int> > wumpus_locations;
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+            if ( ((knowledge[i][j] & not_knowledge[i][j]) & 0x08)) {
+                //we believe there is a wumpus here
+                wumpus_locations.push_back(std::make_tuple(j, i));
+            }
+        }
+    }
+    //did we find a wumpus?
+    if (wumpus_locations.size() == 0) {
+        return 0;
+    }
+    //now get a visited square that is adjacent to that wumpus
+    int wump_x = std::get<0>(wumpus_locations[0]);
+    int wump_y = std::get<1>(wumpus_locations[0]);
+    int shoot_x;
+    int shoot_y;
+    int shoot_dir;
+    if (space_in(wump_x+1, wump_y, visited) >= 0) {
+        shoot_x = wump_x+1;
+        shoot_y = wump_y;
+        shoot_dir = 3;
+    }
+    else if (space_in(wump_x-1, wump_y, visited) >= 0) {
+        shoot_x = wump_x-1;
+        shoot_y = wump_y;
+        shoot_dir = 1;
+    }
+    else if (space_in(wump_x, wump_y+1, visited) >= 0) {
+        shoot_x = wump_x;
+        shoot_y = wump_y+1;
+        shoot_dir = 0;
+    }
+    else if (space_in(wump_x, wump_y-1, visited) >= 0) {
+        shoot_x = wump_x;
+        shoot_y = wump_y-1;
+        shoot_dir = 2;
+    }
+    else {
+        //for some reason we can't get to the wumpus
+        return 0;
+    }
+    //now we have where we need to shoot from and the direction to shoot
+    move_to(shoot_x, shoot_y);
+    turn(shoot_dir);
+    int success = shoot();
+    //if that square doesn't have a supmuw in it, then add it to seen
+    if (!((knowledge[wump_y][wump_x] & not_knowledge[wump_y][wump_x]) & 0x01)) {
+        seen.push_back(std::make_tuple(wump_x, wump_y));
+    }
+    return success;
 }
 
 bool Agent::grab() {
