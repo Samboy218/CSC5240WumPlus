@@ -107,7 +107,7 @@ int Agent::move(int dir) {
         }
 
         //check for living wumpus
-        if (target & 0x48 == 0x08) {
+        if ((target & 0x48) == 0x08) {
         //we got eaten by a wumpus
             points -= 1000;
             dead = true;
@@ -115,7 +115,7 @@ int Agent::move(int dir) {
         }
         
         //check for living supmuw
-        if (target & 0x21 == 0x01) {
+        if ((target & 0x21) == 0x01) {
             //there is a supmuw, check if can smell a wumpus
             if (detect() & 0x08) {
                 //he smells a wumpus, we are dead
@@ -305,6 +305,7 @@ bool Agent::sense_surroundings() {
         knowledge[curr_y][curr_x-1] |= sense;
         not_knowledge[curr_y][curr_x-1] &= sense;
     }
+
     return sensed_danger;
 }
 
@@ -648,7 +649,52 @@ void Agent::check_knowledge() {
                 knowledge[i][j] &= 0xF4;
                 knowledge[i][j] |= 0x80;
             }
+            //check if this square is a walkable pit
+            if ((knowledge[i][j] & not_knowledge[i][j]) == 0x03 && (knowledge[i][j] & 0x80) != 0x80) {
+                //this square might have a pit and a supmuw
+                //check each walkable square with a manhattan distance of 2.
+                //if all of those are good safe/not the same as this. then we know this one is fine
+                std::vector<std::tuple<int, int> > to_check;
+                //i-2, j; i+2, j; i, j-2;, i, j+2
+                if (i-2 >= 0 && knowledge[i-1][j] != 0x90)
+                    to_check.push_back(std::make_tuple(i-2, j));
+                if (i+2 < cave_h && knowledge[i+1][j] != 0x90)
+                    to_check.push_back(std::make_tuple(i+1, j));
+                if (j-2 >= 0 && knowledge[i][j-1] != 0x90)
+                    to_check.push_back(std::make_tuple(i, j-2));
+                if (j+2 < cave_w && knowledge[i][j+1])
+                    to_check.push_back(std::make_tuple(i, j+2));
+                //i+1, j+1; i+1, j-1; i-1, j+1; i-1, j-1
+                if (i+1 < cave_h && j+1 < cave_w)
+                    to_check.push_back(std::make_tuple(i+1, j+1));
+                if (i+1 < cave_h && j-1 >=0)
+                    to_check.push_back(std::make_tuple(i+1, j-1));
+                if (i-1 >= 0 && j+1 < cave_w)
+                    to_check.push_back(std::make_tuple(i-1, j+1));
+                if (i-1 >= 0 && j-1 >= 0)
+                    to_check.push_back(std::make_tuple(i-1, j-1));
 
+                //now check if any of those squares are unknown or have a supmuw or pit
+                int to_check_x;
+                int to_check_y;
+                bool conflict = false;
+                for (int k = 0; k < to_check.size(); k++) {
+                    to_check_x = std::get<0>(to_check[k]);
+                    to_check_y = std::get<1>(to_check[k]);
+                    //if we find any square with a possible sup or pit
+                    //then we cant determine that this is a pit and supmuw
+                    if ((knowledge[to_check_y][to_check_x] & not_knowledge[to_check_y][to_check_x]) & 0x03) {
+                        conflict = true;
+                        continue;
+                    }
+                }
+                if (!conflict) {
+                    //no conflict, which means we can assume this is a pit supmuw
+                    //now we know this square, and we can act like nothing is here
+                    knowledge[i][j] = 0x83;
+                    not_knowledge[i][j] = 0x00;
+                }
+            }
         }
     }
 }
