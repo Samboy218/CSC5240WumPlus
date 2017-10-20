@@ -30,6 +30,7 @@ if the supmuw dies, it stops mooing
 if the wumpus dies, it will still be smelled
 the death scream of the wumpus and supmuw are different
 a dead creature can only be seen if you are in its square
+the supmuw is the only thing that can share a space with something else
 
 
 1, 1 is actually the top left of the board

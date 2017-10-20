@@ -44,71 +44,20 @@ int main(int argc, char** argv) {
     cave_vals[sup_y][sup_x] |= 0x01;
     
     Agent* agent = new Agent(cave_vals, w, h, agent_x, agent_y);
+
+    agent->sense_surroundings();
+    agent->check_knowledge();
     agent->print_cave();
+
+    int to_move_x;
+    int to_move_y;
+    while (agent->seen.size() > 0 && !agent->is_dead()) {
+        to_move_x = std::get<0>(agent->seen[0]);
+        to_move_y = std::get<1>(agent->seen[0]);
+        agent->seen.erase(agent->seen.begin());
+        agent->move_to(to_move_x, to_move_y);
+    }
     agent->print_knowledge();
-    printf("\n");
-
-    //rdrrur dddrrurruu
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(2);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(0);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(2);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(2);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(2);
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(1);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(0);
-    agent->sense_surroundings();
-    agent->print_cave();
-    agent->move(0);
-
-    std::vector<int> moves;
-    moves = agent->path_to(1, 1);
-    for (int i = 0; i < moves.size(); i++) {
-        printf("%d, ", moves[i]);
-    }
-    int move;
-    while (moves.size() > 0) {
-        move = moves[0];
-        moves.erase(moves.begin());
-        move = agent->move(move);
-        if (move == 0)
-            moves = agent->path_to(1, 1);
-        agent->sense_surroundings();
-        agent->print_cave();
-        agent->print_knowledge();
-    }
-
 
     for (int i = 0; i < h; i++) {
         delete[] cave[i];

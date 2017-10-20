@@ -5,20 +5,33 @@ Agent::Agent(uint8_t** cave, int w, int h, int x, int y) {
     points = 0;
     curr_x = x;
     curr_y = y;
+    init_x = x;
+    init_y = y;
     facing = 0;
     arrow = true;
+    dead = false;
+    supmuw_food = false;
+    has_gold = false;
     cave_w = w;
     cave_h = h;
     board = cave;
+    visited.push_back(std::make_tuple(x, y));
+    seen.push_back(std::make_tuple(x+1, y));
+    seen.push_back(std::make_tuple(x-1, y));
+    seen.push_back(std::make_tuple(x, y+1));
+    seen.push_back(std::make_tuple(x, y-1));
     knowledge = new uint8_t*[cave_h];
+    not_knowledge = new uint8_t*[cave_h];
     for (int i = 0; i < h; i++) {
         knowledge[i] = new uint8_t[cave_w];
+        not_knowledge[i] = new uint8_t[cave_w];
         for ( int j = 0; j < w; j++) {
             if (j == 0 || i == 0 || j == w-1 || i == h-1) {
                 knowledge[i][j] = 0x90;
             }
             else
                 knowledge[i][j] = 0x00;
+            not_knowledge[i][j] = 0x0B;
         }
     }
 }
@@ -36,6 +49,8 @@ Agent::~Agent() {
 //3 > left
 //0 if a wall is there, -1 if we die, 1 if we move uneventfully
 int Agent::move(int dir) {
+    if (dead)
+        return -1;
     if (dir < 0)
         return 1;
     points -= 1;
@@ -44,23 +59,25 @@ int Agent::move(int dir) {
     switch (dir) {
         case 0:
             y_offset = -1;
-            printf("moving up\n");
             break;
         case 1:
             x_offset = 1;
-            printf("moving right\n");
             break;
         case 2:
             y_offset = 1;
-            printf("moving down\n");
             break;
         case 3:
             x_offset = -1;
-            printf("moving left\n");
             break;
         default:
             break;
     }
+    //add the space to the list of isited cells (and remove it from seen)
+    int seen_ind = space_in(curr_x + x_offset, curr_y + y_offset, seen);
+    if (seen_ind >= 0)
+        seen.erase(seen.begin() + seen_ind);
+    if (space_in(curr_x + x_offset, curr_y + y_offset, visited) < 0)
+        visited.push_back(std::make_tuple(curr_x + x_offset, curr_y + y_offset));
     uint8_t target = board[curr_y + y_offset][curr_x + x_offset];
     if (target & 0x10) {
         //we hit a wall
@@ -68,12 +85,28 @@ int Agent::move(int dir) {
         return 0;
     }
     else { 
+        //we didnt hit a wall. add adjacent spaces to the seen list
+        //don't add them if they're already there, or if they're in the visited list
         curr_y += y_offset;
         curr_x += x_offset;
+        if (space_in(curr_x + 1, curr_y, visited) < 0 && space_in(curr_x + 1, curr_y, seen) < 0) {
+            seen.push_back(std::make_tuple(curr_x+1, curr_y));
+        }
+        if (space_in(curr_x - 1, curr_y, visited) < 0 && space_in(curr_x - 1, curr_y, seen) < 0) {
+            seen.push_back(std::make_tuple(curr_x-1, curr_y));
+        }
+        if (space_in(curr_x, curr_y + 1, visited) < 0 && space_in(curr_x, curr_y + 1, seen) < 0) {
+            seen.push_back(std::make_tuple(curr_x, curr_y+1));
+        }
+        if (space_in(curr_x, curr_y - 1, visited) < 0 && space_in(curr_x, curr_y - 1, seen) < 0) {
+            seen.push_back(std::make_tuple(curr_x, curr_y-1));
+        }
+
         //check for living wumpus
         if (target & 0x48 == 0x08) {
         //we got eaten by a wumpus
             points -= 1000;
+            dead = true;
             return -1;
         }
         
@@ -83,6 +116,7 @@ int Agent::move(int dir) {
             if (detect() & 0x08) {
                 //he smells a wumpus, we are dead
                 points -= 1000;
+                dead = true;
                 return -1;
             }
             //if the supmuw cannot smell a wumpus, then we are good
@@ -92,7 +126,10 @@ int Agent::move(int dir) {
                     return 1;
                 }
                 else {
-                    points += 100;
+                    if (!supmuw_food) {
+                        supmuw_food = true;
+                        points += 100;
+                    }
                     return 1;
                 }
             }
@@ -100,6 +137,7 @@ int Agent::move(int dir) {
         if (target & 0x02) {
             //pit and no supmuw (or dead wumpus)
             points -= 1000;
+            dead = true;
             return -1;
         }
 
@@ -108,12 +146,16 @@ int Agent::move(int dir) {
 }
 
 void Agent::turn(int dir) {
+    if (dead)
+        return;
     points -= 1;
     facing = dir;
 }
 
 //0 if miss, -1 if no ammo, 1 if hit wumpus, 2 if hit supmuw
 int Agent::shoot() {
+    if (dead)
+        return 0;
     points -= 10;
     if (!arrow) {
         return -1;
@@ -190,8 +232,12 @@ uint8_t Agent::detect() {
     return sense;
 }
 
-void Agent::sense_surroundings() {
+//returns true if we sense anything significant
+bool Agent::sense_surroundings() {
     uint8_t sense = detect();
+    bool sensed_danger = false;
+    if ((sense & 0x0B) != 0)
+        sensed_danger = true;
     //if we see gold or a dead thing, then we know what is in our square
     //don't modify a square with the knowledge bit set
 
@@ -216,7 +262,7 @@ void Agent::sense_surroundings() {
             knowledge[curr_y][curr_x] = 0x80;
         }
         //mask out wumpus and pit, if we don't die they aren't here
-        knowledge[curr_y][curr_x] |= sense & 0x01;
+        knowledge[curr_y][curr_x] &= 0xF5;
     }
     //remove those already covered cases from the sense
     sense &= 0x0B;
@@ -229,24 +275,29 @@ void Agent::sense_surroundings() {
             knowledge[curr_y+1][curr_x] = 0x80;
         }
         knowledge[curr_y+1][curr_x] |= sense;
+        //if we didn't detect it, then the squares around us can't have it
+        not_knowledge[curr_y+1][curr_x] &= sense;
     }
     if (!(knowledge[curr_y-1][curr_x] & 0x80)) {
         if (sense == 0) {
             knowledge[curr_y-1][curr_x] = 0x80;
         }
         knowledge[curr_y-1][curr_x] |= sense;
+        not_knowledge[curr_y-1][curr_x] &= sense;
     }
     if (!(knowledge[curr_y][curr_x+1] & 0x80)) {
         if (sense == 0) {
             knowledge[curr_y][curr_x+1] = 0x80;
         }
         knowledge[curr_y][curr_x+1] |= sense;
+        not_knowledge[curr_y][curr_x+1] &= sense;
     }
     if (!(knowledge[curr_y][curr_x-1] & 0x80)) {
         if (sense == 0) {
             knowledge[curr_y][curr_x-1] = 0x80;
         }
         knowledge[curr_y][curr_x-1] |= sense;
+        not_knowledge[curr_y][curr_x-1] &= sense;
     }
 
 }
@@ -310,12 +361,18 @@ void Agent::print_cave() {
                         printf("\x1b[31m%\x1b[0m");
                         break;
                     default:
-                        printf(" ");
+                        if (space_in(j, i, visited) >= 0)
+                            printf("\x1b[42m \x1b[0m");
+                        else if (space_in(j, i, seen) >= 0)
+                            printf("\x1b[45m \x1b[0m");
+                        else 
+                            printf(" ");
                 }
             }
         }
         printf("\n");
     }
+    printf("Score: %d\n", points);
 }
 
 void Agent::print_knowledge() {
@@ -364,10 +421,10 @@ void Agent::print_knowledge() {
 
 }
 
+//if an empty vector is returned, then there is no path
 std::vector<int> Agent::path_to(int x, int y) {
     if (curr_x == x && curr_y == y) {
         std::vector<int> moves;
-        moves.push_back(-1);
         return moves;
     }
     //i guess we'll use a*
@@ -460,7 +517,6 @@ std::vector<int> Agent::path_to(int x, int y) {
         //open list is empty, no path to target
         if (smallest_F == -1) {
             std::vector<int> moves;
-            moves.push_back(-1);
             return moves;
         }
         //move smallest to closed list
@@ -521,12 +577,22 @@ int Agent::space_in(int x, int y, std::vector<std::tuple<int, int, int, int, int
     }
     return -1;
 }
+//checks if a space is in a vector
+int Agent::space_in(int x, int y, std::vector<std::tuple<int, int> > list) {
+    for (int i = 0; i < list.size(); i++) {
+        if (std::get<0>(list[i]) == x && std::get<1>(list[i]) == y) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 // known | dead wumpus | dead supmuw | wall | wumpus | gold | pit | supmuw
 bool Agent::is_safe(int x, int y) {
     if (x < 0 || y < 0 || x > cave_w-1 || y > cave_h-1)
         return false;
     uint8_t sense = knowledge[y][x];
+    sense &= (not_knowledge[y][x] | 0xF4);
     //dangerous: wumpus, pit, wall
     //wall is bad
     if ((sense & 0x10) == 0x10) {
@@ -551,9 +617,15 @@ bool Agent::is_safe(int x, int y) {
 }
 
 void Agent::check_knowledge() {   
-    //go through each square, if there is a sense in it and 3 adjacent squares are known, then that square is known
+    //go through each square, if there is a sense in it and all adjacent squares have a different sense
+    uint8_t new_knowledge;
     for (int i = 0; i < cave_h; i++) {
         for (int j = 0; j < cave_w; j++) {
+            knowledge[i][j] &= (not_knowledge[i][j] | 0xF4);
+            //if not_knowledge is 0, then we know nothing is there
+            if (not_knowledge[i][j] == 0) {
+                knowledge[i][j] = 0x80; 
+            }
 
         }
     }
@@ -569,4 +641,58 @@ int Agent::manhattan(int x1, int y1, int x2, int y2) {
         dist_x *= -1;
     }
     return dist_x+dist_y;
+}
+bool Agent::move_to(int x, int y) {
+    std::vector<int> moves;
+    moves = path_to(x, y);
+    if (moves.size() == 0)
+        return false;
+    while (curr_x != x || curr_y != y) {
+        move(moves[0]);
+        sense_surroundings();
+        //check if we found the gold
+        if (knowledge[curr_y][curr_x] & 0x04) {
+            //OMG GOLD
+            grab();
+            //get the gold, now GTFO
+            x = init_x;
+            y = init_y;
+        }
+        moves = path_to(x, y);
+        print_cave();
+        struct timespec time_sleep;
+        time_sleep.tv_sec = 0;
+        time_sleep.tv_nsec = 500000000L;
+        struct timespec rem;
+        nanosleep(&time_sleep, &rem);
+        if (moves.size() == 0)
+            return false;
+        //print_knowledge();
+    }
+    return true;
+}
+
+bool Agent::grab() {
+    if (knowledge[curr_y][curr_x] & 0x04)
+    {
+        //gold is here, now snag it!
+        has_gold = true;
+        board[curr_y][curr_x] &= 0xFB;
+        knowledge[curr_y][curr_x] &= 0xFB;
+        points += 1000;
+        return true;
+    }
+    return false;
+}
+
+int Agent::get_x() {
+    return curr_x;
+}
+
+int Agent::get_y() {
+    return curr_y;
+}
+
+bool Agent::is_dead() {
+    return dead;
 }
