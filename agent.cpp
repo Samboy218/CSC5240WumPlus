@@ -662,7 +662,7 @@ bool Agent::move_to(int x, int y) {
         print_cave();
         struct timespec time_sleep;
         time_sleep.tv_sec = 0;
-        time_sleep.tv_nsec = 500000000L;
+        time_sleep.tv_nsec = 50000000L;
         struct timespec rem;
         nanosleep(&time_sleep, &rem);
         if (moves.size() == 0)

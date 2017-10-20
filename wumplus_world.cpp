@@ -52,12 +52,28 @@ int main(int argc, char** argv) {
     int to_move_x;
     int to_move_y;
     while (agent->seen.size() > 0 && !agent->is_dead()) {
+        if (agent->has_gold || agent->is_dead())
+            break;
         to_move_x = std::get<0>(agent->seen[0]);
         to_move_y = std::get<1>(agent->seen[0]);
         agent->seen.erase(agent->seen.begin());
         agent->move_to(to_move_x, to_move_y);
     }
-    agent->print_knowledge();
+    agent->move_to(agent_x, agent_y);
+
+    if (agent->has_gold) {
+        printf("Congrats; you got the gold");
+        if (agent->get_x() == agent_x && agent->get_y() == agent_y)
+        {
+            printf(" and you got out alive!\n");
+        }
+        else
+            printf(", but you weren't able to get out :(\n");
+    }
+    if (agent->is_dead()) {
+        printf("Oh no! you died!\n");
+    }
+    //agent->print_knowledge();
 
     for (int i = 0; i < h; i++) {
         delete[] cave[i];

@@ -39,6 +39,7 @@ class Agent {
         //squares we have see but not visited
         std::vector<std::tuple<int, int> > seen;
         bool is_dead();
+        bool has_gold;
 
     private:
         //finds path to a tile; gives next move
@@ -54,7 +55,6 @@ class Agent {
         bool arrow;
         bool dead;
         bool supmuw_food;
-        bool has_gold;
 
         int cave_w;
         int cave_h;
