@@ -723,12 +723,18 @@ int Agent::manhattan(int x1, int y1, int x2, int y2) {
     return dist_x+dist_y;
 }
 bool Agent::move_to(int x, int y) {
+    if (dead)
+        return false;
     std::vector<int> moves;
     moves = path_to(x, y);
     if (moves.size() == 0)
         return false;
     while (curr_x != x || curr_y != y) {
         move(moves[0]);
+        print_knowledge();
+        print_cave();
+        if (dead)
+            return false;
         sense_surroundings();
         check_knowledge();
         //check if we found the gold
@@ -740,8 +746,6 @@ bool Agent::move_to(int x, int y) {
             y = init_y;
         }
         moves = path_to(x, y);
-        print_knowledge();
-        print_cave();
         struct timespec time_sleep;
         time_sleep.tv_sec = 0;
         time_sleep.tv_nsec = 50000000L;

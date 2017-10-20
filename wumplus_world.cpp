@@ -65,6 +65,7 @@ int main(int argc, char** argv) {
             //otherwise oh well
         }
     }
+
     agent->move_to(agent_x, agent_y);
 
     if (agent->has_gold) {
