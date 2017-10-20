@@ -630,7 +630,25 @@ bool Agent::is_safe(int x, int y) {
        return true; 
     //living supmuw is bad (unless there is a pit)
     if ((sense & 0x21) == 0x01) {
-        return false;
+        //but it could be fine, because maybe there is no wumpus near it
+        bool is_nice = true;
+        if (y+1 < cave_h) {
+            if ((not_knowledge[y+1][x] & 0x08) != 0 || (knowledge[y+1][x] & 0x48) != 0)
+                is_nice = false;
+        }
+        if (y-1 >= 0) {
+            if ((not_knowledge[y-1][x] & 0x08) != 0 || (knowledge[y-1][x] & 0x48) != 0)
+                is_nice = false;
+        }
+        if (x+1 < cave_w) {
+            if ((not_knowledge[y][x+1] & 0x08) != 0 || (knowledge[y][x+1] & 0x48) != 0)
+                is_nice = false;
+        }
+        if (x-1 >= 0) {
+            if ((not_knowledge[y][x-1] & 0x08) != 0 || (knowledge[y][x-1] & 0x48) != 0)
+                is_nice = false;
+        }
+        return is_nice;
     }
     //a pit is bad
     if ((sense & 0x02) == 0x02) {
@@ -657,11 +675,12 @@ void Agent::check_knowledge() {
             knowledge[i][j] &= (not_knowledge[i][j] | 0xF4);
             //if not_knowledge is 0, then we know nothing is there
             if (not_knowledge[i][j] == 0) {
-                //we do it like this so we dont clear out the presence of a wall or gold
+                //we do it like this so we dont clear out the presence of a wall or gold or a dead wumpus
                 knowledge[i][j] &= 0xF4;
                 knowledge[i][j] |= 0x80;
             }
             //check if this square is a walkable pit
+            bool conflict = true;
             if ((knowledge[i][j] & not_knowledge[i][j]) == 0x03 && (knowledge[i][j] & 0x80) != 0x80) {
                 //this square might have a pit and a supmuw
                 //check each walkable square with a manhattan distance of 2.
@@ -689,7 +708,7 @@ void Agent::check_knowledge() {
                 //now check if any of those squares are unknown or have a supmuw or pit
                 int to_check_x;
                 int to_check_y;
-                bool conflict = false;
+                conflict = false;
                 for (int k = 0; k < to_check.size(); k++) {
                     to_check_x = std::get<0>(to_check[k]);
                     to_check_y = std::get<1>(to_check[k]);
@@ -697,15 +716,14 @@ void Agent::check_knowledge() {
                     //then we cant determine that this is a pit and supmuw
                     if ((knowledge[to_check_y][to_check_x] & not_knowledge[to_check_y][to_check_x]) & 0x03) {
                         conflict = true;
-                        continue;
                     }
                 }
-                if (!conflict) {
-                    //no conflict, which means we can assume this is a pit supmuw
-                    //now we know this square, and we can act like nothing is here
-                    knowledge[i][j] = 0x83;
-                    not_knowledge[i][j] = 0x00;
-                }
+            }
+            //supmuw is in the pit
+            if (!conflict) {
+                knowledge[i][j] = 0x83;
+                //so act like the pit isn't there
+                not_knowledge[i][j] &= 0x09;
             }
         }
     }

@@ -63,11 +63,13 @@ int main(int argc, char** argv) {
             int hunt_success = agent->hunt();
             //if we kill the wumpus, then another space should be added to seen
             //otherwise oh well
+            if (hunt_success <= 0)
+                break;
         }
     }
 
     agent->move_to(agent_x, agent_y);
-
+    agent->print_knowledge();
     if (agent->has_gold) {
         printf("Congrats; you got the gold");
         if (agent->get_x() == agent_x && agent->get_y() == agent_y)
@@ -77,10 +79,11 @@ int main(int argc, char** argv) {
         else
             printf(", but you weren't able to get out :(\n");
     }
-    if (agent->is_dead()) {
+    else if (agent->is_dead()) {
         printf("Oh no! you died!\n");
     }
-    agent->print_knowledge();
+    else
+        printf("After some amount of time searching, you leave the cave having failed to find the treasure :(\n");
 
     for (int i = 0; i < h; i++) {
         delete[] cave[i];
