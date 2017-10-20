@@ -51,7 +51,7 @@ int main(int argc, char** argv) {
 
     int to_move_x;
     int to_move_y;
-    while (agent->seen.size() > 0 && !agent->is_dead()) {
+    while (agent->seen.size() > 0) {
         if (agent->has_gold || agent->is_dead())
             break;
         to_move_x = std::get<0>(agent->seen[0]);

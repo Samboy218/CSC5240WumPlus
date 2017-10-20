@@ -34,3 +34,38 @@ the supmuw is the only thing that can share a space with something else
 
 
 1, 1 is actually the top left of the board
+
+PRINTING:
+on each move the agent makes, 2 images will display.
+the pretty colored one is the actual board state
+and the other one is the agent's 'knowledge'
+
+Board state key:
+A:agent
+#:wall
+S:supmuw
+W:wumpus
+o (blue background):pit
+*:gold
+$:dead supmuw
+X:dead wumpus
+% (red): supmuw and wumpus
+% (green): supmuw and dead wumpus
+@: supmuw in pit
+
+empty squares may also be colored based on the agent's logic.
+yellow squares are places that the agent has been
+magenta squares are places where the agent plans to visit
+    sometimes these magenta squares go away, that means the 
+    agent couldn't find a suitable path at this moment
+
+knowledge state key:
+A: agent
+?: it is not known for certain what is in this space
+S: heard the moo of a wumpus
+~: felt a breeze
+*: saw glitter
+#: bumped into wall
+W: smelled wumpus
+$: killed a wumpus here
+X: killed a supmuw here

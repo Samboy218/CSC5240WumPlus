@@ -387,6 +387,11 @@ void Agent::print_cave() {
 }
 
 void Agent::print_knowledge() {
+    int num_chars = 12*cave_w +1;
+    for (int k = 0; k < num_chars; k++) {
+        printf("-");
+    }
+    printf("\n");
     for (int i = 0; i < cave_h; i++) {
         for (int j = 0; j < cave_w; j++) {
             char space[10] = "         ";
@@ -428,6 +433,13 @@ void Agent::print_knowledge() {
             printf("| %s ", space);
         }
         printf("|\n");
+        //print horizontal line
+        int num_chars = 12*cave_w +1;
+        for (int k = 0; k < num_chars; k++) {
+            printf("-");
+        }
+        printf("\n");
+
     }
 
 }
@@ -728,6 +740,7 @@ bool Agent::move_to(int x, int y) {
             y = init_y;
         }
         moves = path_to(x, y);
+        print_knowledge();
         print_cave();
         struct timespec time_sleep;
         time_sleep.tv_sec = 0;
