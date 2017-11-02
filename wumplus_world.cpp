@@ -56,12 +56,14 @@ int main(int argc, char** argv) {
 
     int to_move_x;
     int to_move_y;
+    int seen_end;
     while (agent->seen.size() > 0) {
         if (agent->has_gold || agent->is_dead())
             break;
-        to_move_x = std::get<0>(agent->seen[0]);
-        to_move_y = std::get<1>(agent->seen[0]);
-        agent->seen.erase(agent->seen.begin());
+        seen_end = agent->seen.size() - 1;
+        to_move_x = std::get<0>(agent->seen[seen_end]);
+        to_move_y = std::get<1>(agent->seen[seen_end]);
+        agent->seen.erase(agent->seen.begin() + seen_end);
         agent->move_to(to_move_x, to_move_y);
         if (agent->seen.size() == 0) {
             //agent has explored everything, now go hunt the wumpus
