@@ -306,6 +306,13 @@ bool Agent::sense_surroundings() {
         not_knowledge[curr_y][curr_x-1] &= sense;
     }
 
+    //if we sensed either a supmuw or wumpus, then we know there
+    //cannot be one anywhere except adjacent to us
+    if (sense & 0x08 || sense & 0x01) {
+        uint8_t type = sense & 0x09;
+        exclude_monster(type, curr_x, curr_y);
+    }
+
     return sensed_danger;
 }
 
@@ -667,6 +674,17 @@ void Agent::kill_monster(uint8_t type) {
     }
 }
 
+void Agent::exclude_monster(uint8_t type, int x , int y) {
+    type = ~type;
+    for (int i = 0; i < cave_h; i++) {
+        for (int j = 0; j < cave_w; j++) {
+            if ( (i == y && ( j == x-1 || j == x+1)) || (j == x && (i == y-1 || i ==y+1)))
+                continue;
+            not_knowledge[i][j] &= type;
+        }
+    }
+}
+
 void Agent::check_knowledge() {   
     //go through each square, if there is a sense in it and all adjacent squares have a different sense
     uint8_t new_knowledge;
@@ -801,22 +819,22 @@ int Agent::hunt() {
     int shoot_x;
     int shoot_y;
     int shoot_dir;
-    if (space_in(wump_x+1, wump_y, visited) >= 0) {
+    if (space_in(wump_x+1, wump_y, visited) >= 0 && (knowledge[wump_y][wump_x+1] & 0x10) != 0x10) {
         shoot_x = wump_x+1;
         shoot_y = wump_y;
         shoot_dir = 3;
     }
-    else if (space_in(wump_x-1, wump_y, visited) >= 0) {
+    else if (space_in(wump_x-1, wump_y, visited) >= 0 && (knowledge[wump_y][wump_x-1] & 0x10) != 0x10) {
         shoot_x = wump_x-1;
         shoot_y = wump_y;
         shoot_dir = 1;
     }
-    else if (space_in(wump_x, wump_y+1, visited) >= 0) {
+    else if (space_in(wump_x, wump_y+1, visited) >= 0 && (knowledge[wump_y+1][wump_x] & 0x10) != 0x10) {
         shoot_x = wump_x;
         shoot_y = wump_y+1;
         shoot_dir = 0;
     }
-    else if (space_in(wump_x, wump_y-1, visited) >= 0) {
+    else if (space_in(wump_x, wump_y-1, visited) >= 0 && (knowledge[wump_y-1][wump_x] & 0x10) != 0x10) {
         shoot_x = wump_x;
         shoot_y = wump_y-1;
         shoot_dir = 2;

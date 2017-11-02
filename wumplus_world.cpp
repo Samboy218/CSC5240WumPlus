@@ -8,7 +8,12 @@ uint8_t get_tile_val(char tile);
 
 int main(int argc, char** argv) {
     std::fstream file;
-    file.open("wumpus.txt");
+    if (argc == 1) {
+        file.open("wumpus.txt");
+    }
+    else {
+        file.open(argv[1]);
+    }
     int w;
     int h;
     char garbage[256];

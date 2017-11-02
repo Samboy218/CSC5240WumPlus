@@ -50,6 +50,8 @@ class Agent {
         bool is_safe(int x, int y);
         //do this when we kill a thing. wumpus is 0x08, supmuw is 0x01
         void kill_monster(uint8_t type);
+        //says that a monster can't be anywhere except adjacent to x,y
+        void exclude_monster(uint8_t type, int x, int y);
         bool grab();
         int points;
         int curr_x;
