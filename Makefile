@@ -7,6 +7,10 @@ all: $(modName)
 $(modName): $(sourceName) $(extras)
 	 g++ -O2 -s -DNDEBUG -o $(modName) $(sourceName) $(extras) -std=gnu++11
 
+.PHONY: super
+super:  $(sourceName) $(extras)
+	 g++ -O3 -s -DNDEBUG -o $(modName) $(sourceName) $(extras) -std=gnu++11
+
 .PHONY: clean
 clean:
 	rm -f $(modName)
